@@ -1,5 +1,5 @@
 #include <libpynq.h>
-#include "../utilities/utils.h"
+#include "../utils.h"
 
 int main (void)
 {

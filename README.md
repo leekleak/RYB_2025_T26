@@ -1,6 +1,6 @@
 # RYB_2025_T26
 
-# How to use this repository (Vytautas' reccomendation).
+# How to use this repository (Vytautas' recommendation).
 
 1. Install Github desktop 
 2. Set up sshfs

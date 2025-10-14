@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include "utils.c"
 
 void int32_to_char(uint32_t in, unsigned char out[4]) {
     out[0] = (in >> 24) & 0xFF;

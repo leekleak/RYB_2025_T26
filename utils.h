@@ -6,8 +6,8 @@ FontxFile fx16G[2];
 
 void init() {
     pynq_init();
-    switchbox_set_pin(IO_PMODA3, SWB_IIC0_SCL);
-    switchbox_set_pin(IO_PMODA4, SWB_IIC0_SDA);
+    switchbox_set_pin(IO_AR_SCL, SWB_IIC0_SCL);
+    switchbox_set_pin(IO_AR_SDA, SWB_IIC0_SDA);
     iic_init(IIC0);
 
     // Display shit
@@ -19,6 +19,8 @@ void init() {
     uint8_t fontWidth_fx16G, fontHeight_fx16G;
     InitFontx(fx16G, "/boot/ILGH16XB.FNT", "");
     GetFontx(fx16G, 0, buffer_fx16G, &fontWidth_fx16G, &fontHeight_fx16G);
+
+    srand(time(0));
 }
 
 void destroy() {

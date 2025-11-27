@@ -12,7 +12,7 @@ void init() {
 
     // Display shit
     display_init(&display);
-    display_set_flip(&display, true, true);
+    display_set_flip(&display, false, false);
     displayFillScreen(&display, RGB_BLACK);
 
     uint8_t buffer_fx16G[FontxGlyphBufSize];

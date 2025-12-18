@@ -4,7 +4,7 @@
 #include <time.h>
 #include "../utils.h"
 
-void display1(int amp, double fre){
+void display1(int amp, int fre){
 
     unsigned char AMP[] = "Amplitude: ";
     unsigned char FRE[] = "Frequency: ";

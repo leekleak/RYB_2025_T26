@@ -7,7 +7,7 @@
 int main(void)
 {
   init();
-  const uint32_t my_slave_address = 0x99; // Other slave addresses: 0x80, 0x90
+  const uint32_t my_slave_address = 0x70; // Other slave addresses: 0x80, 0x90
   uint32_t my_register_map[32] = {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   const uint32_t my_register_map_length = sizeof(my_register_map)/sizeof(uint32_t);
 

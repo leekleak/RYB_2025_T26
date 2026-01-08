@@ -43,7 +43,7 @@ int main(void){
             df = 0.60*f;
             da = 0.60*a;
             sf = 0.5;
-            sa = 6-;
+            sa = 60;
         } else if(s==3){
             df = 0.40*f;
             da = 0.40*a;

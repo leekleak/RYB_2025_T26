@@ -180,9 +180,7 @@ int main(void){
 
           iic_write_register(IIC0, slave_address3, 1, dx[k], 4);
           iic_write_register(IIC0, slave_address3, 2, dy[k], 4);
-         // my_register_map[1] = dx[k]; // set value
-         // my_register_map[2] = dy[k]; // set value
-         // my_register_map[0] = 0; // tell master that they've not read the value
+          iic_write_register(IIC0, slave_address3, 0, 0, 4); // Tell the slave the value is new
       
         }
     }

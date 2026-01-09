@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "../utils.h"
-#define REFRESH_USEC 1000000
+#define REFRESH_USEC 2000000
 
 void display1(int beats, uint32_t bpm){
 
@@ -30,7 +30,7 @@ int main(void) {
     gpio_set_level(IO_AR6, GPIO_LEVEL_HIGH);
 
     // init for slave code
-    const uint32_t my_slave_address = 0x70; // Other slave addresses: 0x80, 0x90
+    const uint32_t my_slave_address = 0x71; // Other slave addresses: 0x80, 0x90
     uint32_t my_register_map[32] = {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     const uint32_t my_register_map_length = sizeof(my_register_map)/sizeof(uint32_t);
 
@@ -45,62 +45,55 @@ int main(void) {
     int sawAzero = 0;
 
     // take start time
-    struct timespec start, now;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    struct timespec tt1, tt2;
+    clock_gettime(CLOCK_MONOTONIC, &tt1);
+    clock_gettime(CLOCK_MONOTONIC, &tt2);
+    double elapsed2 = 0;
+
+    double bps = 0.0;   // beats per second
 
     while (1) {
 
         volts = adc_read_channel(ADC5);
-        printf("voltage: %f \n", volts);
 
-        if (volts < 1.5) {
-            beat = 1;
-        } else {
-            beat = 0;
-        }
-        printf("Beat: %d \n", beat);
+        beat = (volts < 1.0);
 
         if (beat == 0) {
             sawAzero = 1;
         }
         if (beat == 1 && sawAzero == 1) {
+            clock_gettime(CLOCK_MONOTONIC, &tt2);
+            elapsed2 = (tt2.tv_sec - tt1.tv_sec)
+                       + (tt2.tv_nsec - tt1.tv_nsec) / 1e9;
+            printf("Time: %.2f\n", elapsed2);
+            tt1 = tt2;
+            bps += elapsed2;
             beats += 1;
             sawAzero = 0;
         }
 
-        // get current time
-        clock_gettime(CLOCK_MONOTONIC, &now);
-
-        // calculate elapsed time in seconds (as double)
-        double elapsed = (now.tv_sec - start.tv_sec)
-                       + (now.tv_nsec - start.tv_nsec) / 1e9;
-
-        // avoid division by zero at the very beginning
-        double bps = 0.0;   // beats per second
-        uint32_t bpm = 0.0;   // beats per minute
-        if (elapsed > 0.0) {
-            bps = beats / elapsed;
-            bpm = bps * 60.0;
-        }
-
-        printf("Beats: %d | Time: %.2f s | Rate: %f beats/s (%d bpm)\n", beats, elapsed, bps, bpm);
-
         iic_slave_mode_handler(IIC0);
         if (clock() - t > REFRESH_USEC) {
-            display1(beats, bpm);
+            int bpm2 = 1.0 / (bps / beats) * 60;
+            
+            printf("Beats: %d | Time: %.2f s | Rate: %f beats/s (%d bpm)\n", beats, elapsed2, bps, bpm2);
+            bps = 0;
+            beats = 0;
+
+            display1(beats, bpm2);
             t = clock();
 
             // Generate a 4 character code
             char buffer[5];
             buffer[4] = '\0';
             unsigned char str[] = "Sent:";
-            sprintf(buffer, "%04d", bpm);  // Encode BPM value
+            sprintf(buffer, "%04d", bpm2);  // Encode BPM value
             
-            my_register_map[5] = bpm; // set value
+            my_register_map[5] = bpm2; // set value
             my_register_map[0] = 0; // tell master that they've not read the value
 
             // Print data to console and to display
-            printf("Sent %s\n",buffer);
+           // printf("Sent %s\n",buffer);
             displayDrawString(&display, fx16G, 30, 150, str, RGB_RED);
             displayDrawString(&display, fx16G, 100, 150, (uint8_t *) buffer, RGB_GREEN);
 

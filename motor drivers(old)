@@ -1,18 +1,20 @@
 #include <libpynq.h>
 
 int main(void){
+    init();
     pynq_init();
+
 //frequency
     switchbox_set_pin(IO_AR0, SWB_PWM0); //Set PWM0 to arduino pin 0
     pwm_init(PWM0,100000);
     pwm_set_duty_cycle(PWM0,20000);
     pwm_set_steps(PWM0, -1); //Set to run indefinitely
+
 //amplitude
     switchbox_set_pin(IO_AR1, SWB_PWM1); //Set PWM0 to arduino pin 1
-    pwm_init(PWM1,1000000);
-    pwm_set_duty_cycle(PWM1,200000);
+    pwm_init(PWM1,100000);
+    pwm_set_duty_cycle(PWM1,20000);
     pwm_set_steps(PWM1, -1); //Set to run indefinitely
-
 
     pwm_destroy(PWM0);
     pwm_destroy(PWM1);

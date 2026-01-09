@@ -24,7 +24,7 @@ void display1(int amp, float fre){
 int main(void){
     init();
 
-    int f=100000, a=1000000, df, da, s=1, sa;
+    int f=100000, a=100000, df, da, s=1, sa;
     float sf;
 
     const uint32_t my_slave_address = 0x72; // Other slave addresses: 0x80, 0x90
@@ -82,7 +82,7 @@ int main(void){
       switchbox_set_pin(IO_AR1, SWB_PWM1); //Set PWM0 to arduino pin 1
       pwm_init(PWM1,a);
       pwm_set_duty_cycle(PWM1, da);
-      pwm_set_steps(PWM1, 1000000); 
+      pwm_set_steps(PWM1, 100000); 
       }
       
       if (clock() - t > REFRESH_USEC) {

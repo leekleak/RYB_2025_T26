@@ -1,0 +1,210 @@
+#include <stdio.h>
+#include <libpynq.h>
+#include <time.h>
+#include "../utils.h"
+#define REFRESH_USEC 5000000
+
+float stress_cry_f(float cry){
+  printf("cry: %f", cry);
+return cry;
+}
+float stress_hb_f(float hb){
+  printf("hb %f \n", hb);
+  return hb/240 * 100;
+}
+float compute_stress(float stress_cry,float stress_hb){
+  printf("stress_hb : %f", stress_hb);
+  return (stress_cry+stress_hb)/2.0;
+}
+
+
+typedef struct{
+    int x,y;
+  }coord;
+  
+  coord queue[25];
+  int front=0, back=0;
+  
+  //queue stuff//
+  void add(coord P){
+    queue[back++]=P;
+  }
+  coord feed(){
+    return queue[front++];
+  }
+  //stop when done//
+  int check_empty(){
+    return front==back; 
+  }
+  //initialize matrix for visited coords//
+  int visited[5][5]={0};
+  //check if point is inside th= e bounds of the grid/no repeats//
+  int valid(coord P, float stress_neighbour, float stress_parent){
+    printf("fuh ts valid asf\n");
+    int lol =  stress_neighbour<stress_parent ;
+    printf("%f", stress_parent);
+    printf("yoo, %d \n", lol);
+    printf("heatbeat: %f \n", stress_neighbour);
+    printf("%f \n", stress_parent);
+    return P.x>=0 && P.x<=4 && P.y>=0 && P.y<=4 && stress_neighbour<stress_parent &&!visited[P.x][P.y];
+  }
+
+int main(void){
+  printf("Main\n");
+  fflush(stdout);
+  init();
+  uint32_t i;
+  uint32_t j;
+  uint32_t slave_address1 = 0x70;
+  uint32_t slave_address2 = 0x71;
+  uint32_t slave_address3 = 0x72;
+  float stress_neighbour, stress_parent;
+  float cry,hb, stress_cry, stress_hb;
+
+    //master-slave code is a while loop so I have to ensert BFS in the loop//
+  //link variables to given info from hb and crying (doc says type int)//
+  coord start={4,0};// CORRECT COORDS!!!!!!!!!!!!!!!!!!
+  add(start);
+  visited[4][0]=1; //CORRECT COORDS!!!!!!!!!!!!!!!!!!!!!!
+
+  //movement stuff//
+  int dx[4]={1,-1,0,0};
+  int dy[4]={0,0,1,-1};
+  int k = 0;
+  printf("Main2\n");
+  if (iic_read_register(IIC0, slave_address1, 0, (uint8_t *) &i, 4)) { // 4 bytes
+      printf("register[%d]=error-CRY\n", 0);
+    }
+    if (i == 0) {
+      uint8_t tt = 1;
+      uint8_t *t = &tt;
+      iic_write_register(IIC0, slave_address1, 0, t, 4);
+      for (int reg=1; reg < 32; reg++) {
+        iic_read_register(IIC0, slave_address1, reg, (uint8_t *) &i, 4);
+        if (reg == 5){
+          cry=i;
+          printf("%f ", cry);
+        }
+      }
+    }
+
+     /**
+     * Slave 2 (will be HEARTBEAT)
+     */
+
+    if (iic_read_register(IIC0, slave_address2, 0, (uint8_t *) &j, 4)) { // 4 bytes
+      printf("register[%d]=error_hb\n", 0);
+    }
+    if (j == 0) {
+      uint8_t tt = 1;
+      uint8_t *t = &tt;
+      iic_write_register(IIC0, slave_address2, 0, t, 4);
+      for (int reg=1; reg < 32; reg++) {
+        iic_read_register(IIC0, slave_address2, reg, (uint8_t *) &j, 4);
+        if (reg == 5){
+          hb=j;
+        }
+      }
+    }
+    printf("REad both slaves\n");
+    fflush(stdout);
+    stress_cry=stress_cry_f(cry);
+    stress_hb=stress_hb_f(hb);
+    printf("Before stress_hb: %f", stress_hb);
+    fflush(stdout);
+    stress_parent = compute_stress(stress_cry, stress_hb);
+    __clock_t t = clock() - REFRESH_USEC;
+    coord current_point = feed();
+  while(1){ 
+    iic_write_register(IIC0, slave_address3, 1, (uint8_t *)dx[k], 4);
+    iic_write_register(IIC0, slave_address3, 2, (uint8_t *)dy[k], 4);
+    printf("get into this while loop\n");
+     //feeding point that is currently evaluated//
+    printf("%i %i\n", current_point.x, current_point.y);
+    printf("feed \n");
+
+      /**
+       * Slave 1 (will be hb)
+       */
+
+      // Check if there's anything new in the registers
+      if (iic_read_register(IIC0, slave_address1, 0, (uint8_t *) &i, 4)) { // 4 bytes
+        printf("register[%d]=error\n", 0);
+        displayFillScreen(&display, RGB_BLACK);
+        displayDrawString(&display, fx16G, 100, 100, (uint8_t *)"error", RGB_GREEN);
+        break;
+      }
+      if (i == 0) {
+        uint8_t tt = 1;
+        uint8_t *t = &tt;
+        printf("cry\n");
+        iic_write_register(IIC0, slave_address1, 0, t, 4);
+        for (int reg=1; reg < 32; reg++) {
+          iic_read_register(IIC0, slave_address1, reg, (uint8_t *) &i, 4);
+          if (reg == 5){
+            cry=i;
+          }
+        }
+      }
+      printf("Zero from crying: %f", cry);
+
+
+      /**
+       * Slave 2 (will be cry)
+       */
+
+      if (iic_read_register(IIC0, slave_address2, 0, (uint8_t *) &j, 4)) { // 4 bytes
+        printf("register[%d]=error\n", 0);
+        displayFillScreen(&display, RGB_BLACK);
+        displayDrawString(&display, fx16G, 100, 100, (uint8_t *)"error", RGB_GREEN);
+        break;
+      }
+      if (j == 0) {
+        uint8_t tt = 1;
+        uint8_t *t = &tt;
+        iic_write_register(IIC0, slave_address2, 0, t, 4);
+        for (int reg=1; reg < 32; reg++) {
+          iic_read_register(IIC0, slave_address2, reg, (uint8_t *) &j, 4);
+          if (reg == 5){
+            hb=i;
+          }
+        }
+      }
+      printf("Recieved %f", hb);
+      printf("hb\n");
+      fflush(stdout);
+
+    if (!check_empty() && clock() - t > REFRESH_USEC) {
+        t = clock();
+
+        coord neighbour;
+        neighbour.x=current_point.x + dx[k];
+        neighbour.y=current_point.y + dy[k];
+        k = k + 1;
+        if (k > 3) {
+          k = 0;
+          current_point = feed();
+        }
+        
+        stress_cry=stress_cry_f(cry);
+        stress_hb=stress_hb_f(hb);
+        stress_neighbour=compute_stress(stress_cry, stress_hb);
+
+        if(valid(neighbour,stress_neighbour,stress_parent)){
+          visited[neighbour.x][neighbour.y]=1;
+          add(neighbour);
+          printf("coords:(%i,%i); move x:%i, y:%i\n", neighbour.x, neighbour.y, dx[k],dy[k]);
+          fflush(stdout);
+        iic_write_register(IIC0, slave_address3, 0, 0, 4); // Tell the slave the value is new
+          printf("we made it twin\n");
+          fflush(stdout);
+        }
+        if(k!=0 && k!=-1)iic_write_register(IIC0, slave_address3, 1, (uint8_t *)dx[k-1], 4);
+        if(k!=0 && k!=1)iic_write_register(IIC0, slave_address3, 1, (uint8_t *)dx[k+1], 4);
+        if(k!=0 && k!=-1)iic_write_register(IIC0, slave_address3, 2, (uint8_t *)dy[k]-1, 4);
+        if(k!=0 && k!=1)iic_write_register(IIC0, slave_address3, 1, (uint8_t *)dY[k+1], 4); 
+      }
+    
+  } 
+
+}

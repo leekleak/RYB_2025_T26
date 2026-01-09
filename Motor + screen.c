@@ -23,73 +23,59 @@ void display1(int amp, float fre){
 
 int main(void){
     init();
-
-    int f=100000, a=1000000, df, da, s=1, sa;
-    float sf;
+    switchbox_set_pin(IO_AR0, SWB_PWM0);
+    switchbox_set_pin(IO_AR1, SWB_PWM1);
+    int f=100000, a=100000, df, da;
+    pwm_init(PWM0,f);
+    pwm_init(PWM1,a);
+    int freq, amp;
 
     const uint32_t my_slave_address = 0x72; // Other slave addresses: 0x80, 0x90
     uint32_t my_register_map[32] = {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     const uint32_t my_register_map_length = sizeof(my_register_map)/sizeof(uint32_t);
+
 
     iic_reset(IIC0);
     iic_set_slave_mode(IIC0, my_slave_address, &(my_register_map[0]), my_register_map_length);
     iic_slave_mode_handler(IIC0);
     __clock_t t = clock() - REFRESH_USEC;
 
-    while(true){
+    if (clock() - t > REFRESH_USEC){
       iic_slave_mode_handler(IIC0);
 
 
       if (my_register_map[0] == 0) { // New instructions from master
-        if(s==0){
-          df = 0.95*f;
-          da = 0.95*a;
-          sf = 0.2;
-          sa = 20;
-      } else if(s==1){
-          df = 0.80*f;
-          da = 0.80*a;
-          sf = 0.35;
-          sa = 40;
-      } else if(s==2){
-          df = 0.60*f;
-          da = 0.60*a;
-          sf = 0.5;
-          sa = 60;
-      } else if(s==3){
-          df = 0.40*f;
-          da = 0.40*a;
-          sf = 0.65;
-          sa = 80;
-      } else if(s==4){
-          df = 0.20*f;
-          da = 0.20*a;
-          sf = 0.70;
-          sa = 100;
-      } else{
-          printf("Error motor driver.");
-          df = f;
-          da = a;
+        // master will send from 0 to 40
+        /*
+         4 - 100%
+         3 - 80%
+         2 - 60%
+         1 - 40 %
+         0 - 20%
+        
+        */
+            df = my_register_map[1];
+            da = my_register_map[2];
+            df = (df+1)*0.2;
+            da = (da+1)*0.2;
+            freq = (1 - df)*f;
+            amp = (1- da)*a;
+            my_register_map[0] = 1;
       }
 
-    
+      display1(df, da);
       //frequency
-      switchbox_set_pin(IO_AR0, SWB_PWM0); //Set PWM0 to arduino pin 0
-      pwm_init(PWM0,f);
-      pwm_set_duty_cycle(PWM0, df);
-      pwm_set_steps(PWM0, 100000); 
+      // Set PWM0 to arduino pin 0
+      
+      pwm_set_duty_cycle(PWM0, freq);
+      pwm_set_steps(PWM0, -1); 
       //amplitude
-      switchbox_set_pin(IO_AR1, SWB_PWM1); //Set PWM0 to arduino pin 1
-      pwm_init(PWM1,a);
-      pwm_set_duty_cycle(PWM1, da);
-      pwm_set_steps(PWM1, 1000000); 
+       //Set PWM0 to arduino pin 1
+      
+      pwm_set_duty_cycle(PWM1, amp);
+      pwm_set_steps(PWM1, -1); 
       }
       
-      if (clock() - t > REFRESH_USEC) {
-        t = clock();
-        display1(sa, sf);
-      }
-    }
 
 
     pwm_destroy(PWM0);

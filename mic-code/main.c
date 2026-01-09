@@ -39,7 +39,11 @@ int main(void)
       
       if (maximum == 0) maximum = biggest;
       char charray[5];
-      sprintf(charray, "%3.0f%", biggest / maximum * 100);
+      uint32_t value = biggest / maximum * 100;
+      sprintf(charray, "%d%", value);
+
+      my_register_map[5] = value; // set value
+      my_register_map[0] = 0; // tell master that they've not read the value
       
       // Print data to console and to display
       displayFillScreen(&display, RGB_BLACK);

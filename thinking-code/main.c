@@ -20,7 +20,7 @@ int main (void)
   uint32_t slave_address2 = 0x71;
   uint32_t slave_address3 = 0x72;
   
-  int x_off[4] = {-1, 0, 0, 0};
+  int x_off[4] = {-1, 0, 1, 0};
   int y_off[4] = {0, -1, 0, 0};
   int coords_x = 4;
   int coords_y = 4;
@@ -50,6 +50,8 @@ int main (void)
   int evil_blocks_x[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   int evil_blocks_y[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   int evil_blocks_i = 0;
+  
+  int last_stress;
 
 		uart_send (UART0, 0);
 		uart_send (UART0, coords_x);

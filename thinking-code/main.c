@@ -1,11 +1,20 @@
 #include <libpynq.h>
 #include <time.h>
 #include "../utils.h"
-#define REFRESH_USEC 1000000
+#define REFRESH_USEC 5000000
 
 int main (void)
 {
   init();
+  
+  printf("start");
+  fflush(stdout);
+  switchbox_set_pin(IO_AR0, SWB_UART0_RX);
+  switchbox_set_pin(IO_AR1, SWB_UART0_TX);
+
+  uart_init(UART0);
+  uart_reset_fifos(UART0);
+  
   uint32_t i;
   uint32_t slave_address1 = 0x70;
   uint32_t slave_address2 = 0x71;
@@ -17,12 +26,14 @@ int main (void)
   int coords_y = 4;
   int progress = 0; // Neigbour checking progress
 
-  int best_neighbour_stress = 100;
+  int best_neighbour_stress = 101;
   int best_neighbour_i = 0;
 
   int cry = 100;
   int hb = 100;
   int stress = 100;
+  
+  int skipped_neighbour = 0;
 
   __clock_t t = clock() - REFRESH_USEC;
 
@@ -30,30 +41,29 @@ int main (void)
     /*
       Crying
     */
-    /*if (iic_read_register(IIC0, slave_address1, 0, (uint8_t *) &i, 4)) {
+    if (iic_read_register(IIC0, slave_address1, 0, (uint8_t *) &i, 1)) {
       printf("register[%d]=cry\n", 0);
       displayFillScreen(&display, RGB_BLACK);
       displayDrawString(&display, fx16G, 100, 100, (uint8_t *)"error", RGB_GREEN);
-      break;
+      break; 
     }
     if (i == 0) {
       uint8_t tt = 1;
       uint8_t *t = &tt;
-      printf("cry\n");
-      iic_write_register(IIC0, slave_address1, 0, t, 4);
+      iic_write_register(IIC0, slave_address1, 0, t, 1);
       for (int reg=1; reg < 32; reg++) {
-        iic_read_register(IIC0, slave_address1, reg, (uint8_t *) &i, 4);
+        iic_read_register(IIC0, slave_address1, reg, (uint8_t *) &i, 1);
         if (reg == 5){
           cry=i;
         }
       }
-    }*/
+    }
 
     /*
       Heartbeat
     */
-    /*int j = -1;
-    if (iic_read_register(IIC0, slave_address2, 0, (uint8_t *) &j, 4)) {
+    int j = -1;
+    if (iic_read_register(IIC0, slave_address2, 0, (uint8_t *) &j, 1)) {
       printf("register[%d]=hb\n", 0);
       displayFillScreen(&display, RGB_BLACK);
       displayDrawString(&display, fx16G, 100, 100, (uint8_t *)"error", RGB_GREEN);
@@ -62,44 +72,75 @@ int main (void)
     if (j == 0) {
       uint8_t tt = 1;
       uint8_t *t = &tt;
-      iic_write_register(IIC0, slave_address2, 0, t, 4);
+      iic_write_register(IIC0, slave_address2, 0, t, 1);
       for (int reg=1; reg < 32; reg++) {
-        iic_read_register(IIC0, slave_address2, reg, (uint8_t *) &j, 4);
+        iic_read_register(IIC0, slave_address2, reg, (uint8_t *) &j, 1);
         if (reg == 5){
-          hb=i;
+          hb=j;
+          printf("hb %d\n", hb);
         }
       }
     }
     stress = hb / 2;
     if (stress > 100) stress = 100;
-*/
+
+    uart_send (UART0, 1);
     if (clock() - t > REFRESH_USEC) {
       t = clock();
       printf("Heartbeat %d, Crying: %d\n", hb, cry);
 
-      if (progress < 4) {
-        printf("Neighbour %d stress %d\n", progress, stress);
-        if (stress < best_neighbour_stress) {
-          best_neighbour_stress = stress;
-          best_neighbour_i = progress;
+      if (progress < 5) {
+      	if (progress != 0 && !skipped_neighbour) {
+		    printf("Neighbour %d stress %d\n", progress-1, stress);
+		    if (stress < best_neighbour_stress) {
+		      best_neighbour_stress = stress;
+		      best_neighbour_i = progress-1;
+		    }
         }
-
-        int x1 = coords_x + x_off[progress];
-        int y1 = coords_y + y_off[progress];
-        int val = 0;
-        printf("Asking motors to go to %d %d\n\n", x1, y1);
-        /*iic_write_register(IIC0, slave_address3, 1, &x1, 4);
-        iic_write_register(IIC0, slave_address3, 2, &y1, 4);
-        iic_write_register(IIC0, slave_address3, 0, &val, 4);*/
-        progress = progress + 1;
-      } else {
+        
+		if(progress < 4) {
+			while(1) {
+				printf("Progress: %d\n", progress);
+			    int x1 = coords_x + x_off[progress];
+				int y1 = coords_y + y_off[progress];
+				
+				if (x1 < 0 || x1 > 4 || y1 < 0 || y1 > 4) {
+						progress = progress + 1;
+						if (progress < 4) {
+							//printf("Continueing");
+							skipped_neighbour = 1;
+							continue;
+						} else {
+							//printf("Breaking");
+							skipped_neighbour = 1;
+							break;
+						}
+				}
+				int val = 0;
+				printf("Testing %d %d\n\n", x1, y1);
+				
+				uart_send (UART0, 0);
+				uart_send (UART0, x1);
+				uart_send (UART0, y1);
+				
+				progress = progress + 1;
+				skipped_neighbour = 0;
+				break;
+		    }
+        }
+      }
+      if(progress>3) {
         coords_x = coords_x + x_off[best_neighbour_i];
         coords_y = coords_y + y_off[best_neighbour_i];
 
+		printf("Best neighbour %d.\n\n", best_neighbour_i);        
         best_neighbour_i = 0;
-        best_neighbour_stress = stress;
+        stress = best_neighbour_stress;
 
-        printf("\n\nMoving to new tile: %d %d", coords_x, coords_y);
+		printf("Selected %d %d as the best candidate.\n\n", coords_x, coords_y);
+		uart_send (UART0, 0);
+	    uart_send (UART0, coords_x);
+	    uart_send (UART0, coords_y);
         progress = 0;
       }
     }

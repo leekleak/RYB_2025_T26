@@ -20,10 +20,15 @@ void display1(int fre, int amp){
     displayDrawString(&display, fx16G, 120, 120, (uint8_t *)FreArray, RGB_GREEN);
 }
 
-int main(void){
+int main(void){    
     init();
     switchbox_set_pin(IO_AR0, SWB_PWM0);
     switchbox_set_pin(IO_AR1, SWB_PWM1);
+    switchbox_set_pin(IO_AR2, SWB_UART0_RX);
+    switchbox_set_pin(IO_AR3, SWB_UART0_TX);
+    
+    uart_init(UART0);
+    uart_reset_fifos (UART0);
 
     int f=100000, a=100000, df, da;
     pwm_init(PWM0,f);
@@ -40,30 +45,30 @@ int main(void){
     __clock_t t = clock() - REFRESH_USEC;
     while(1){
         iic_slave_mode_handler(IIC0);
-        if (my_register_map[0] == 0) { // New instructions from master
+        if (uart_recv(UART0) == 0) { // New instructions from master
             // master will send from 0 to 4
             /*
-            4 - 100%
-            3 - 80%
-            2 - 60%
-            1 - 40 %
-            0 - 20%
+            4 - 80%
+            3 - 60%
+            2 - 40%
+            1 - 20%
+            0 - 0%
             */
-            df = my_register_map[1];
-            da = my_register_map[2];
+            df = uart_recv(UART0);
+            da = uart_recv(UART0);
             printf("Recieved: freq = %d, amp = %d \n", df, da);
             fflush(stdout); // idk if needed, just putting it to be sure.
-            freq = (1 - (df+1)*0.2)*f; 
-            amp = (1- (da+1)*0.2)*a;
+            freq = (1-df*0.2)*f; 
+            amp = (1-da*0.2)*a;
             // if df or da=4, than from the lines above the freq/amp would be 0, because 1-1 = 0
+            /*
             if (df == 4 ){
-                freq = 0.05*f; // setting it to 95% speed.
+                freq = 0.08*f; // setting it to 92% speed.
             }
             if (da == 4){
-                amp = 0.05*a;
+                amp = 0.08*a;
             }
-            my_register_map[0] = 1;
-
+            */
         }
         if (clock() - t > REFRESH_USEC){ // this is maybe not the correct way of doing it.
             t = clock();

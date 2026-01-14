@@ -1,12 +1,46 @@
 #include <libpynq.h>
 #include <time.h>
 #include "../utils.h"
-#define REFRESH_USEC 17500000
+#define REFRESH_USEC 25000000
+void display1(int hb, int cry, int stress){
+    unsigned char HB[] = "Hearbeat: ";
+    unsigned char mic[] = "Microphone: ";
+	unsigned char stess[] = "Stress: ";
+	
+    char hbArray[4];
+    char micArray[4];
+	char stessArr[4];
+    sprintf(hbArray, "%d", hb);
+    sprintf(micArray, "%d", cry);
+	sprintf(stessArr, "%d", stress);
+
+
+    displayDrawFillRect(&display, 0, 0, 230, 115, RGB_BLACK);
+    displayDrawString(&display, fx16G, 30, 30, HB, RGB_RED);
+    displayDrawString(&display, fx16G, 120, 30, (uint8_t *)hbArray, RGB_GREEN);
+    displayDrawString(&display, fx16G, 30, 50, mic, RGB_RED);
+    displayDrawString(&display, fx16G, 120, 50, (uint8_t *)micArray, RGB_GREEN);
+	displayDrawString(&display, fx16G, 30, 80, stess, RGB_RED);
+    displayDrawString(&display, fx16G, 120, 80, (uint8_t *)stessArr, RGB_GREEN);
+
+}
+
+void display_test(int coordX, int coordY ){
+	unsigned char coords[] = "Testing coords: ";
+	char coordxArr[4];
+	char coordyArr[4];
+	sprintf(coordxArr, "%d", coordX + 1);
+	sprintf(coordyArr, "%d", coordY + 1);
+	displayDrawFillRect(&display, 0, 115, 230, 239, RGB_BLACK);
+	displayDrawString(&display, fx16G, 30, 140, coords, RGB_RED);
+	displayDrawString(&display, fx16G, 160, 140, (uint8_t *)coordxArr, RGB_GREEN);
+	displayDrawString(&display, fx16G, 180, 140, (uint8_t *)coordyArr, RGB_GREEN);
+}
 
 int main (void)
 {
   init();
-  
+
   printf("start");
   fflush(stdout);
   switchbox_set_pin(IO_AR0, SWB_UART0_RX);
@@ -20,26 +54,20 @@ int main (void)
   uint32_t slave_address2 = 0x71;
   uint32_t slave_address3 = 0x72;
   
-  int x_off[4] = {-1, 0, 1, 0};
-  int y_off[4] = {0, -1, 0, 0};
+  int x_off[2] = {-1, 0};
+  int y_off[2] = {0, -1};
   int coords_x = 4;
   int coords_y = 4;
   int progress = 0; // Neigbour checking progress
 
-  int best_neighbour_stress = 101;
-  int best_neighbour_i = 0;
+  int last_stress = 101;
 
   int cry = 100;
   int hb = 0;
   int hb_n = 0;
   int stress = 100;
-  
-  int skipped_neighbour = 0;
 
   __clock_t t = clock() - REFRESH_USEC;
-  
-  int ignore_x = 100;
-  int ignore_y = 100;
   
   int path_x[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   int path_y[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -50,12 +78,13 @@ int main (void)
   int evil_blocks_x[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   int evil_blocks_y[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   int evil_blocks_i = 0;
-  
-  int last_stress;
 
-		uart_send (UART0, 0);
-		uart_send (UART0, coords_x);
-		uart_send (UART0, coords_y);
+  int get_new_stress = 0;
+
+	int check_left = 1;
+	uart_send (UART0, 0);
+	uart_send (UART0, coords_x);
+	uart_send (UART0, coords_y);
 		
   while (1) {
     /*
@@ -99,6 +128,7 @@ int main (void)
 		    if (reg == 5){
 		      hb += j;
 		      hb_n = hb_n + 1;
+			  display1(j, cry, stress, coords_x, coords_y);
 		      printf("hb %d\n", hb);
 		    }
 		  }
@@ -107,28 +137,35 @@ int main (void)
 
     uart_send (UART0, 1);
     
-    if (clock() - t > REFRESH_USEC - 1000000) {
+	//int wait = REFRESH_USEC;
+	//if (!check_left) wait /= 5
+    if (clock() - t > REFRESH_USEC - 3000000 && get_new_stress) {
 		uart_send (UART0, 0);
 		uart_send (UART0, coords_x);
 		uart_send (UART0, coords_y);
 	}
     if (clock() - t > REFRESH_USEC) {
 	    stress = hb / 2.2 / hb_n;
-    		hb = 0;
-    		hb_n = 0;
-    		printf("Stress: %d \n\n", stress);
+		hb = 0;
+		hb_n = 0;
+		printf("Stress: %d \n\n", stress);
 	    if (stress > 100) {
 	   
 	     stress = 100;
-	     evil_blocks_x[evil_blocks_i] = coords_x + x_off[progress]; //CHECK IF PROGRESS AND NOT PROGRESS -1
- 	     evil_blocks_y[evil_blocks_i] = coords_y + y_off[progress];
+	     evil_blocks_x[evil_blocks_i] = coords_x + x_off[0];
+ 	     evil_blocks_y[evil_blocks_i] = coords_y + y_off[0];
  	     evil_blocks_i += 1;
  	     if (path_i != 0) {
-	     follow_path = 1;
-	     follow_path_i = 0;
+	     	follow_path = 1;
+	     	follow_path_i = 0;
 	     }
 	     };
       t = clock();
+		if (get_new_stress) {
+			printf("Grabbed new stress level %d\n", stress);
+			last_stress = stress;
+			get_new_stress = 0;
+		}
       printf("Heartbeat %d, Crying: %d\n", hb, cry);
 
 	if (follow_path) {
@@ -145,69 +182,53 @@ int main (void)
 		}
 	}
 	else {
-		  if (progress < 5) {
-		  	if (progress != 0 && !skipped_neighbour) {
-				printf("Neighbour %d stress %d\n", progress-1, stress);
-				if (stress < best_neighbour_stress) {
-				  best_neighbour_stress = stress;
-				  best_neighbour_i = progress-1;
-				}
-		    }
-		    
-			if(progress < 4) {
-				while(1) {
-					printf("Progress: %d\n", progress);
-					int x1 = coords_x + x_off[progress];
-					int y1 = coords_y + y_off[progress];
-					
-					int evil_block = 0;
-					for (int p = 0; p < evil_blocks_i; p++) {
-						if (evil_blocks_x[p] == x1 || evil_blocks_y[p] == y1) evil_block = 1;
-					}
-					
-					if (x1 < 0 || x1 > 4 || y1 < 0 || y1 > 4 || x1 == ignore_x || y1 == ignore_y || evil_block) {
-							progress = progress + 1;
-							if (progress < 4) {
-								skipped_neighbour = 1;
-								continue;
-							} else {
-								skipped_neighbour = 1;
-								break;
-							}
-					}
-					int val = 0;
+		int skp = 0;
+		if (check_left) {
+			printf("Test left");
+  			int x1 = coords_x + x_off[0];
+			int y1 = coords_y + y_off[0];
+			
+			int evil_block = 0;
+			
+			for (int p = 0; p < evil_blocks_i; p++) {
+				if (evil_blocks_x[p] == x1 && evil_blocks_y[p] == y1) evil_block = 1;
+			}
+			if (x1 < 0 || y1 < 0 || evil_block) {
+				check_left = 0;
+				break;
+			}
 
-										printf("Testing %d %d\n\n", x1, y1);
-					uart_send (UART0, 0);
-					uart_send (UART0, x1);
-					uart_send (UART0, y1);
-					
-					progress = progress + 1;
-					skipped_neighbour = 0;
-					break;
-				}
-		    }
-		  }
-		  if(progress>3) {
-		  	ignore_x = coords_x;
-		  	ignore_y = coords_y;
+			printf("Testing %d %d\n\n", x1, y1);
+			display_test(x1, y1);
+			uart_send (UART0, 0);
+			uart_send (UART0, x1);
+			uart_send (UART0, y1);
+			check_left = 0;
+			skp = 1;
+		} 
+		if (!check_left && !skp) {
 		  	path_x[path_i] = coords_x;
 		  	path_y[path_i] = coords_y;
 		  	path_i += 1;
-		  	
-		    coords_x = coords_x + x_off[best_neighbour_i];
-		    coords_y = coords_y + y_off[best_neighbour_i];
-
-			printf("Best neighbour %d.\n\n", best_neighbour_i);        
-		    best_neighbour_i = 0;
-		    stress = best_neighbour_stress;
-
+		
+			if (stress < last_stress - 5) {
+				printf("Left was good, going left.");
+				coords_x = coords_x + x_off[0];
+				coords_y = coords_y + y_off[0];
+			}
+			else {
+				printf("Left was bad, going down.");
+				coords_x = coords_x + x_off[1];
+				coords_y = coords_y + y_off[1];
+				get_new_stress = 1;
+			}
+			last_stress = stress;
 			printf("Selected %d %d as the best candidate.\n\n", coords_x, coords_y);
 			uart_send (UART0, 0);
 			uart_send (UART0, coords_x);
 			uart_send (UART0, coords_y);
-		    progress = 0;
-		  }
+			check_left = 1;
+	  	}
       }
     }
   }
